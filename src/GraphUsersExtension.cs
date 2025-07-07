@@ -1,6 +1,7 @@
 ﻿using Microsoft.Graph.Models;
 using Soenneker.Extensions.String;
 using System;
+using System.Linq;
 
 namespace Soenneker.Graph.Extensions.Users;
 
@@ -10,73 +11,84 @@ namespace Soenneker.Graph.Extensions.Users;
 public static class GraphUsersExtension
 {
     /// <summary>
-    /// Fast, low-alloc extraction of e-mail, given name, and surname.
+    /// Extracts contact info in one pass with early-return shortcuts.
+    /// <para>**Requires** <c>$select</c> to include: <c>mail, userPrincipalName, otherMails, identities, givenName, surname, displayName</c>.</para>
     /// </summary>
     public static (string? Email, string? FirstName, string? LastName) GetEmailAndName(this User user)
     {
         if (user is null)
             throw new ArgumentNullException(nameof(user));
 
-        string? email = null;
+        //--------------------------------------------------------
+        // 1️⃣  Early-return: everything already populated
+        //--------------------------------------------------------
+        if (user.Mail.HasContent() && user.GivenName.HasContent() && user.Surname.HasContent())
+            return (user.Mail!.Trim(), user.GivenName!.Trim(), user.Surname!.Trim());
 
-        // One tight loop; avoids two FirstOrDefault LINQ calls and an extra list.
-        if (user.Identities is not null)
+        //--------------------------------------------------------
+        // 2️⃣  Email – cheapest sources first
+        //--------------------------------------------------------
+        string? email =
+            user.Mail
+            ?? user.UserPrincipalName
+            ?? user.OtherMails?.FirstOrDefault(m => m.HasContent());
+
+        if (email.IsNullOrEmpty() && user.Identities is not null)
         {
             foreach (ObjectIdentity id in user.Identities)
             {
-                // a) Local/B2B/B2E accounts created with e-mail sign-in
+                // a) Local accounts that sign in with e-mail
                 if (id.SignInType == "emailAddress")
                 {
                     email = id.IssuerAssignedId;
-                    break; // fastest exit – we’re done
+                    break;
                 }
 
-                // b) Social-federated identities (Google, Facebook, Apple…)
-                if (email is null && id.SignInType == "federated")
+                // b) Federated (Google, Facebook, etc.) – look for an @
+                if (id.SignInType == "federated" &&
+                    id.IssuerAssignedId.HasContent() && id.IssuerAssignedId.IndexOf('@') >= 0)
                 {
-                    string? val = id.IssuerAssignedId;
-
-                    if (val.HasContent() && val.IndexOf('@') >= 0)
-                        email = val;
+                    email = id.IssuerAssignedId;
+                    // keep looping – a later identity could be "emailAddress"
                 }
             }
         }
 
-        // c) Native Graph fields
-        email ??= user.Mail ?? user.UserPrincipalName;
-
-        //------------------------------------------------------------------//
-        // 2️⃣  First & last names                                           //
-        //------------------------------------------------------------------//
-
+        //--------------------------------------------------------
+        // 3️⃣  First / last names
+        //--------------------------------------------------------
         string? first = user.GivenName;
         string? last = user.Surname;
 
         if (first.IsNullOrEmpty() || last.IsNullOrEmpty())
         {
             string? dn = user.DisplayName;
-
             if (dn.HasContent())
             {
-                // Avoid Split allocation; find the first space only.
-                int idx = dn.IndexOf(' ');
+                ReadOnlySpan<char> span = dn.AsSpan();
+                int firstSpace = span.IndexOf(' ');
+                int lastSpace = span.LastIndexOf(' ');
 
-                if (idx < 0) // single-token name, e.g. “Madonna”
+                // Single-token displayName → treat as FirstName if missing
+                if (firstSpace < 0)
                 {
                     first ??= dn;
                 }
-                else // everything before first space is First; the rest is Last
+                else
                 {
+                    // “Mary Anne van der Woodsen” ↓
                     if (first.IsNullOrEmpty())
-                        first = dn[..idx]; // substring via range syntax; Span-friendly
+                        first = dn[..firstSpace];
 
                     if (last.IsNullOrEmpty())
-                        last = dn[(idx + 1)..]; // no Trim needed – we know idx points at a space
+                        last = dn[(lastSpace + 1)..];   // last token = last name
                 }
             }
         }
 
-        // Final tidy-up (cheap if already null/non-whitespace)
+        //--------------------------------------------------------
+        // 4️⃣  Final tidy-up
+        //--------------------------------------------------------
         return (email?.Trim(), first?.Trim(), last?.Trim());
     }
 }
