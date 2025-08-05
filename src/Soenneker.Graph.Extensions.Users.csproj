@@ -42,7 +42,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.Graph" Version="5.88.0" />
+      <PackageReference Include="Microsoft.Graph" Version="5.89.0" />
       <PackageReference Include="Soenneker.Extensions.String" Version="3.0.541" />
     </ItemGroup>
 </Project>
