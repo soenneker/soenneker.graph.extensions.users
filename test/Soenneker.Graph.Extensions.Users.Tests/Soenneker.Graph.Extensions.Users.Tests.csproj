@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Soenneker.Graph.Extensions.Users.csproj" />
+        <ProjectReference Include="..\..\src\Soenneker.Graph.Extensions.Users\Soenneker.Graph.Extensions.Users.csproj" />
     </ItemGroup>
 
     <ItemGroup>
