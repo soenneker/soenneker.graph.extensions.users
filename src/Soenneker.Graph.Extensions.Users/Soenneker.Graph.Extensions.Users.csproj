@@ -45,6 +45,6 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Graph" Version="6.2.0" />
-        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.703" />
+        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.705" />
     </ItemGroup>
 </Project>
