@@ -14,6 +14,8 @@ public static class GraphUsersExtension
     /// Extracts contact info in one pass with early-return shortcuts.
     /// <para>**Requires** <c>$select</c> to include: <c>mail, userPrincipalName, otherMails, identities, givenName, surname, displayName</c>.</para>
     /// </summary>
+    /// <param name="user">User for the get email and name operation.</param>
+    /// <returns>The resulting (string Email, string First Name, string Last Name).</returns>
     public static (string? Email, string? FirstName, string? LastName) GetEmailAndName(this User user)
     {
         if (user is null)
