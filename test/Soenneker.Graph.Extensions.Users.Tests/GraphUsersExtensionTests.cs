@@ -13,7 +13,7 @@ public sealed class GraphUsersExtensionTests : UnitTest
     }
 
     [Test]
-    public async Task Whitespace_values_do_not_hide_fallbacks()
+    public async ValueTask Whitespace_values_do_not_hide_fallbacks()
     {
         var user = new User
         {
